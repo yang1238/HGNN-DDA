@@ -85,7 +85,6 @@ class GraphAttentionLayer(nn.Module):
     def __repr__(self):
         return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
 
-#自注意力机制
 class selfattention(nn.Module):
     def __init__(self, sample_size, d_k, d_v):
         super().__init__()
@@ -153,49 +152,48 @@ class GAC(nn.Module):
 
 class GraphAttentionBiLSTMConvolution(nn.Module):
 
-    #初始化构造函数，接收输入维度、输出维度、名称、dropout 比率、拼接选项和激活函数。
+
     def __init__(self, in_features, out_features):
-        #设置类属性，初始化变量字典和稀疏标志。
+
         self.input_dim=in_features
         self.output_dim=out_features
         self.vars = {}
         self.issparse = False
-        #使用 Glorot 初始化方法初始化权重。
+
         with tf.compat.v1.variable_scope(self.name + '_vars'):
             self.vars['weights'] = weight_variable_glorot(
                 in_features, out_features, name='weights')
 
-        #设置 alpha 值、拼接选项，并定义双向 LSTM 层。
+
         self.alpha = 0.2
         self.bi_lstm = layers.Bidirectional(
             layers.LSTM(units=int(self.output_dim/2), input_shape=(10, self.input_dim))
         )
-        #初始化权重矩阵和注意力系数矩阵。
+
         self.W = tf.Variable(tf.keras.initializers.GlorotUniform()(shape=(in_features, out_features)))
         self.a = tf.Variable(tf.keras.initializers.GlorotUniform()(shape=(2 * out_features, 1)))
-        #定义激活函数和层归一化。
+
         self.leakyrelu = tf.keras.layers.LeakyReLU(self.alpha)
         self.layer = LayerNormalization(axis=1)
 
-    #定义前向传播方法，接受输入 h 和邻接矩阵 adj。
+
     def __call__(self, h, adj, training=True):
-        # 扩展输入维度并通过双向 LSTM 层处理。
+
         with tf.compat.v1.name_scope(self.name):
             h = tf.expand_dims(h, axis=-1)
             h = self.bi_lstm(h)
-            # 计算加权输入和准备注意力机制的输入。
+
             Wh = tf.matmul(h, self.W)
             e = self._prepare_attentional_mechanism_input(Wh)
-            #处理邻接矩阵，确保其为密集形式并添加单位矩阵。
+
             zero_vec = -9e15 * tf.ones_like(e)
             adj=tf.sparse.to_dense(tf.sparse.reorder(adj))
             adj = adj + tf.eye(tf.shape(adj)[0])
-            #计算注意力权重并应用 dropout。
+
             attention = tf.where(adj > 0, e, zero_vec)
             attention = tf.nn.softmax(attention, axis=-1)
             attention = tf.nn.dropout(attention, rate=self.dropout)
-            #根据注意力权重计算输出并应用激活函数。
+
             h_prime = tf.matmul(attention, Wh)
         return self.leakyrelu(h_prime)
 
-    #准备注意力机制的输入，计算注意力分数。
