@@ -52,10 +52,10 @@ else:
     device = torch.device("cpu")
 
 # Load data
-protein_HIN, protein_ESM, protein_adj, drug_HIN, drug_PC, drug_adj, sample_set = multiomics_data()
-protein_HIN, protein_ESM, protein_adj = Variable(protein_HIN), Variable(protein_ESM), Variable(protein_adj)
+disease_HIN, disease_ESM, disease_adj, drug_HIN, drug_PC, drug_adj, sample_set = multiomics_data()
+disease_HIN, disease_ESM, disease_adj = Variable(disease_HIN), Variable(disease_ESM), Variable(disease_adj)
 drug_HIN, drug_PC, drug_adj = Variable(drug_HIN), Variable(drug_PC), Variable(drug_adj)
-protein_HIN, protein_ESM, protein_adj = protein_HIN.to(device), protein_ESM.to(device), protein_adj.to(device)
+disease_HIN, disease_ESM, disease_adj = disease_HIN.to(device), disease_ESM.to(device), disease_adj.to(device)
 drug_HIN, drug_PC, drug_adj = drug_HIN.to(device), drug_PC.to(device), drug_adj.to(device)
 
 used_memory = torch.cuda.memory_allocated()  # 已使用的GPU内存量
@@ -63,10 +63,10 @@ cached_memory = torch.cuda.memory_reserved()   #缓存的GPU内存量
 print(f"数据上传成功，服务器GPU已分配：{used_memory / 1024**3:.2f} GB，已缓存：{cached_memory / 1024**3:.2f} GB".encode("utf-8").decode("latin1"))
 
 # Model and optimizer
-model = MultiDeep(nprotein=protein_ESM.shape[0],
+model = MultiDeep(ndisease=disease_ESM.shape[0],
                   ndrug=drug_PC.shape[0],
-                  nproteinHIN=protein_HIN.shape[1],
-                  nproteinESM=protein_ESM.shape[1],
+                  ndiseaseHIN=disease_HIN.shape[1],
+                  ndiseaseESM=disease_ESM.shape[1],
                   ndrugHIN=drug_HIN.shape[1],
                   ndrugPC=drug_PC.shape[1],
                   nhid_GAT=args.hidden_GAT,
@@ -93,7 +93,7 @@ def train(epoch, index_tra, y_tra, index_val, y_val):
     model.train()
     for index_trian, y_train in train_dataset:
         y_train = y_train.to(device)
-        y_tpred = model(protein_HIN, protein_ESM, protein_adj, drug_HIN, drug_PC, drug_adj, index_trian.numpy().astype(int), device)
+        y_tpred = model(disease_HIN, disease_ESM, disease_adj, drug_HIN, drug_PC, drug_adj, index_trian.numpy().astype(int), device)
         loss_train = loss_func(y_tpred, y_train)
         optimizer.zero_grad()
         loss_train.backward()
@@ -114,7 +114,7 @@ def train(epoch, index_tra, y_tra, index_val, y_val):
     pred_valid, true_valid = [], []
     for index_valid, y_valid in valid_dataset:
         y_valid = y_valid.to(device)
-        y_vpred = model(protein_HIN, protein_ESM, protein_adj, drug_HIN, drug_PC, drug_adj, index_valid.numpy().astype(int), device)
+        y_vpred = model(disease_HIN, disease_ESM, disease_adj, drug_HIN, drug_PC, drug_adj, index_valid.numpy().astype(int), device)
         loss_valid = loss_func(y_vpred, y_valid)
         pred_valid.extend(y_vpred.cpu().detach().numpy())
         true_valid.extend(y_valid.cpu().detach().numpy())
@@ -158,7 +158,7 @@ def compute_test(index_test, y_test):
     test_dataset = Dataset.DataLoader(dataset, batch_size=args.batch, shuffle=True)
     for index_test, y_test in test_dataset:
         y_test = y_test.to(device)
-        y_pred = model(protein_HIN, protein_ESM, protein_adj, drug_HIN, drug_PC, drug_adj, index_test.numpy().astype(int), device)
+        y_pred = model(disease_HIN, disease_ESM, disease_adj, drug_HIN, drug_PC, drug_adj, index_test.numpy().astype(int), device)
         loss_test = loss_func(y_pred, y_test)
         pred_test.extend(y_pred.cpu().detach().numpy())
         true_test.extend(y_test.cpu().detach().numpy())
@@ -225,4 +225,5 @@ model.load_state_dict(torch.load('./output/models_{}.pkl'.format(model_date)))
 compute_test(index_test, y_test)
 time_total = time.time() - time_begin
 print("Total time: {:.4f}s".format(time_total))
+
 
