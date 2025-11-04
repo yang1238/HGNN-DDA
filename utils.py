@@ -53,7 +53,7 @@ def get_adj_array(file_path):
 
     adj_matrix = []
     for line in lines:
-        row = [float(x) for x in line.strip().split()]  # 假设邻接矩阵中的元素以空格分隔
+        row = [float(x) for x in line.strip().split()]  
         adj_matrix.append(row)
 
 
@@ -73,4 +73,5 @@ def weight_variable_glorot(input_dim, output_dim, name=""):
     )
 
     return tf.compat.v1.Variable(initial, name=name)
+
 
